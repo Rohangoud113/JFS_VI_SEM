@@ -1,0 +1,161 @@
+<!-- dictionary data structure -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Batch & Faculty Timetable</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<style>
+body { font-family: Arial; margin: 20px; }
+table { width: 95%; border-collapse: collapse; margin-top: 15px; }
+th, td { border: 1px solid black; padding: 8px; text-align: center; }
+th { background: lightblue; }
+
+.control { margin: 15px 0; }
+select, button { padding: 6px 10px; margin-right: 10px; }
+
+.title { font-size: 22px; font-weight: bold; margin-top: 30px; }
+
+.highlight {
+    background-color: yellow;
+    font-weight: bold;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2>Upload CSV File</h2>
+<input type="file" id="csvFile" accept=".csv">
+
+<div class="control">
+    <button onclick="toggleBatch()">Batch-wise ▼</button>
+    <select id="batchSelect" onchange="showBatch()" style="display:none"></select>
+</div>
+
+<div class="control">
+    <button onclick="toggleFaculty()">Faculty-wise ▼</button>
+    <select id="facultySelect" onchange="showFaculty()" style="display:none"></select>
+</div>
+
+<div id="output"></div>
+
+<script>
+const days = ["MON","TUE","WED","THU","FRI","SAT"];
+let batchData = {}, facultyData = {};
+
+document.getElementById("csvFile").addEventListener("change", function () {
+    Papa.parse(this.files[0], {
+        header: true,
+        skipEmptyLines: true,
+        complete: res => processCSV(res.data)
+    });
+});
+
+function processCSV(data) {
+    batchData = {};
+    facultyData = {};
+
+    data.forEach(row => {
+        const { BATCH, DAY, SESSION, COURSE, ROOM, FACULTY } = row;
+        if (!BATCH || !DAY || !SESSION || !FACULTY) return;
+
+        batchData[BATCH] ??= {};
+        batchData[BATCH][DAY] ??= { FN:"", AN:"" };
+        batchData[BATCH][DAY][SESSION] =
+            `${COURSE}<br>Room:${ROOM}<br>${FACULTY}`;
+
+        facultyData[FACULTY] ??= {};
+        facultyData[FACULTY][DAY] ??= { FN:"", AN:"" };
+        facultyData[FACULTY][DAY][SESSION] =
+            `${COURSE}<br>Room:${ROOM}<br>${BATCH}`;
+    });
+
+    populateDropdowns();
+}
+
+function populateDropdowns() {
+    const batchSelect = document.getElementById("batchSelect");
+    const facultySelect = document.getElementById("facultySelect");
+
+    batchSelect.innerHTML = `<option value="">Select Batch</option>`;
+    facultySelect.innerHTML = `<option value="">Select Faculty</option>`;
+
+    Object.keys(batchData).forEach(b =>
+        batchSelect.innerHTML += `<option value="${b}">${b}</option>`
+    );
+
+    Object.keys(facultyData).forEach(f =>
+        facultySelect.innerHTML += `<option value="${f}">${f}</option>`
+    );
+}
+
+function toggleBatch() {
+    batchSelect.style.display = batchSelect.style.display === "none" ? "inline" : "none";
+    facultySelect.style.display = "none";
+}
+
+function toggleFaculty() {
+    facultySelect.style.display = facultySelect.style.display === "none" ? "inline" : "none";
+    batchSelect.style.display = "none";
+}
+
+function showBatch() {
+    const batch = batchSelect.value;
+    if (!batch) return;
+    buildTable(batchData[batch], `Batch: ${batch}`);
+}
+
+function showFaculty() {
+    const faculty = facultySelect.value;
+    if (!faculty) return ;
+    buildTable(facultyData[faculty], `Faculty: ${faculty}`);
+}
+
+function buildTable(data, titleText) {
+    const output = document.getElementById("output");
+    output.innerHTML = "";
+
+    const title = document.createElement("div");
+    title.className = "title";
+    title.textContent = titleText;
+
+    const table = document.createElement("table");
+
+    let html = `
+    <tr>
+        <th>DAY</th>
+        <th>FN</th>
+        <th rowspan="7">L<br>U<br>N<br>C<br>H</th>
+        <th>AN</th>
+    </tr>`;
+    
+    days.forEach(day => {
+        const fn = data[day]?.FN || "";
+        const an = data[day]?.AN || "";
+
+        // Highlight condition ONLY for faculty table
+        const fnClass = fn.includes("VI-SU-B2") ? "highlight" : "";
+        const anClass = an.includes("VI-SU-B2") ? "highlight" : "";
+
+        html += `
+        <tr>
+            <td>${day}</td>
+            <td class="${fnClass}">${fn}</td>
+            <td class="${anClass}">${an}</td>
+        </tr>`;
+    });
+
+    table.innerHTML = html;
+    output.append(title, table);
+}
+
+</script>
+
+</body>
+</html>
